@@ -124,27 +124,30 @@ class OKXClient(BaseExchangeClient):
         params = {"instId": symbol}
         return self._request("GET", path, params)
 
+    def fetch_index_tickers(self, symbol: str) -> Dict[str, Any]:
+        """
+        Fetch index tickers (including index price).
+        OKX API: GET /api/v5/market/index-tickers?instId={symbol}
+        """
+        path = "/api/v5/market/index-tickers"
+        params = {"instId": symbol}
+        return self._request("GET", path, params)
+    
+    def fetch_mark_price(self, symbol: str) -> Dict[str, Any]:
+        """
+        Fetch mark price.
+        OKX API: GET /api/v5/public/mark-price?instId={symbol}
+        """
+        path = "/api/v5/public/mark-price"
+        params = {"instId": symbol}
+        return self._request("GET", path, params)
+
     def fetch_open_interest(self, symbol: str) -> Dict[str, Any]:
         """
         Fetch open interest.
         OKX API: GET /api/v5/public/open-interest?instId={symbol}
         """
         path = "/api/v5/public/open-interest"
-        params = {"instId": symbol}
-        return self._request("GET", path, params)
-
-    def fetch_index_tickers(self, symbol: str) -> Dict[str, Any]:
-        """
-        Fetch index tickers (mark price, index price).
-        OKX API: GET /api/v5/public/mark-price?instId={symbol}
-        Note: OKX separates mark price and index price. 
-        Mark price: /api/v5/public/mark-price
-        Index price: /api/v5/market/index-tickers (requires index symbol, e.g. BTC-USD)
-        For simplicity, we'll fetch mark price here which often includes index price or we can fetch ticker.
-        Actually, 'ticker' endpoint already has last, open, high, low, vol.
-        Let's fetch mark price specifically.
-        """
-        path = "/api/v5/public/mark-price"
         params = {"instId": symbol}
         return self._request("GET", path, params)
 

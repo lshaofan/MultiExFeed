@@ -159,32 +159,40 @@ class AggregatorService:
             result["derivatives"]["oi"] = {"error": str(e)}
 
         try:
-            # Mark price and index price
-            mark = self.client.fetch_index_tickers(symbol)
-            ticker = self.client.fetch_ticker(symbol)
+            # Get mark price and index price
+            mark_data = self.client.fetch_mark_price(symbol)
+            
+            # For SWAP contracts, need to convert symbol for index price
+            # BTC-USDT-SWAP -> BTC-USDT for index-tickers
+            index_symbol = symbol.replace("-SWAP", "")
+            index_data = self.client.fetch_index_tickers(index_symbol)
             
             mark_price = None
             index_price = None
+            ts = None
             
-            if mark.get("code") == "0" and mark.get("data"):
-                m_data = mark["data"][0]
+            # Extract mark price from mark-price endpoint
+            if mark_data.get("code") == "0" and mark_data.get("data"):
+                m_data = mark_data["data"][0]
                 mark_price = m_data.get("markPx")
+                ts = m_data.get("ts")
             
-            if ticker.get("code") == "0" and ticker.get("data"):
-                t_data = ticker["data"][0]
-                index_price = t_data.get("indexPrice") or t_data.get("idxPx")
+            # Extract index price from index-tickers endpoint
+            if index_data.get("code") == "0" and index_data.get("data"):
+                i_data = index_data["data"][0]
+                index_price = i_data.get("idxPx")
             
             result["derivatives"]["price"] = {
                 "mark": mark_price,
                 "index": index_price,
-                "ts": m_data.get("ts") if mark.get("data") else None
+                "ts": ts
             }
             
-            # Calculate basis
+            # Calculate basis (mark - index)
             if mark_price and index_price:
                 from exdatahub.services.derived_metrics import DerivedMetrics
-                basis = DerivedMetrics.calculate_basis(mark_price, index_price)
-                result["derivatives"]["price"].update(basis)
+                basis_info = DerivedMetrics.calculate_basis(mark_price, index_price)
+                result["derivatives"]["price"].update(basis_info)
         except Exception as e:
             result["derivatives"]["price"] = {"error": str(e)}
 
