@@ -18,6 +18,18 @@ ExDataHub 是一个用 **Python** 编写的、面向量化交易和数据分析�
 - 🔜 支持 WebSocket 实时行情聚合  
 - 🔜 简单策略/信号模块（可选）
 
+## 🚀 快速开始
+
+详细使用说明请参考 [使用文档](docs/usage.md)。
+
+```bash
+# 1. 配置环境
+cp .env.example .env
+
+# 2. 获取 OKX Ticker
+./start.sh fetch okx ticker BTC-USDT
+```
+
 ---
 
 ## 🧱 架构设计概述
