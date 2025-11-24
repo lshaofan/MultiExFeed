@@ -48,7 +48,44 @@ class ConfigLoader:
     
     @property
     def kline_frames(self) -> list:
-        return self.get('klines.frames', ['1m', '5m', '15m', '1H', '4H', '1D'])
+        """
+        获取 K 线周期列表
+        支持两种格式：
+        1. 旧格式: frames: [1m, 5m, ...]
+        2. 新格式: frames: [{frame: 1m, limit: 200}, ...]
+        """
+        frames_config = self.get('klines.frames', ['1m', '5m', '15m', '1H', '4H', '1D'])
+        
+        # 检查是否是新格式
+        if frames_config and isinstance(frames_config[0], dict):
+            # 新格式：返回 frame 字段列表
+            return [item['frame'] for item in frames_config]
+        else:
+            # 旧格式：直接返回
+            return frames_config
+    
+    def get_kline_limit(self, frame: str) -> int:
+        """
+        获取指定周期的 limit
+        
+        Args:
+            frame: 周期（如 1m, 5m）
+        
+        Returns:
+            limit 数量
+        """
+        frames_config = self.get('klines.frames', [])
+        
+        # 检查是否是新格式
+        if frames_config and isinstance(frames_config[0], dict):
+            # 新格式：查找对应 frame 的 limit
+            for item in frames_config:
+                if item.get('frame') == frame:
+                    return item.get('limit', 300)
+            return 300  # 默认值
+        else:
+            # 旧格式：使用全局 limit
+            return self.get('klines.limit', 300)
     
     @property
     def kline_limit(self) -> int:

@@ -4,10 +4,21 @@
 exchange: okx
 symbol: BTC-USDT-SWAP
 
-# K线周期配置
+# K线周期配置（优化后的 limit）
 klines:
-  frames: [1m, 5m, 15m, 1H, 4H, 1D]
-  limit: 300
+  frames:
+    - frame: 1m
+      limit: 200
+    - frame: 5m
+      limit: 200
+    - frame: 15m
+      limit: 150
+    - frame: 1H
+      limit: 150
+    - frame: 4H
+      limit: 120
+    - frame: 1D
+      limit: 120
 
 # 技术指标参数
 indicators:

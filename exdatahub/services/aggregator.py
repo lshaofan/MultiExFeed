@@ -39,10 +39,11 @@ class AggregatorService:
 
         # 1. Fetch Klines for all frames (Parallel)
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_to_frame = {
-                executor.submit(self.client.fetch_klines, symbol, frame, limit=300): frame 
-                for frame in frames
-            }
+            future_to_frame = {}
+            for frame in frames:
+                # 获取每个周期的 limit
+                limit = self.config.get_kline_limit(frame) if self.config else 300
+                future_to_frame[executor.submit(self.client.fetch_klines, symbol, frame, limit=limit)] = frame
             
             for future in concurrent.futures.as_completed(future_to_frame):
                 frame = future_to_frame[future]
@@ -59,21 +60,27 @@ class AggregatorService:
                         # Calculate indicators
                         indicators = AnalysisService.calculate_indicators(raw_klines)
                         
-                        # Store raw klines (maybe just last few to save space? or full as requested)
-                        # User asked for raw klines.
-                        # Let's attach indicators to the last kline or separate structure?
-                        # User template: "klines": { "1m": [...] }
-                        # User also asked: "In every kline add columns: ema9..."
-                        # For now, let's keep klines raw (but reversed/chronological) and add a summary of indicators.
-                        # Actually, user said: "Or you calculate indicators... In every kline add columns"
-                        # To keep it simple for now, I will return raw klines AND a separate "analysis" block per frame.
-                        # Wait, user template has "derivatives" but didn't explicitly show where indicators go.
-                        # But in section III, they said "Or you calculate... In every kline add columns".
-                        # Let's add latest indicators to the result structure for now.
+                        # Calculate derived metrics (labels)
+                        from exdatahub.services.derived_metrics import DerivedMetrics
+                        
+                        # 获取当前价格（最新K线的收盘价）
+                        current_price = None
+                        if raw_klines:
+                            try:
+                                current_price = float(raw_klines[-1][4])  # close price
+                            except (IndexError, ValueError, TypeError):
+                                pass
+                        
+                        summary = {
+                            "trend_label": DerivedMetrics.get_trend_label(indicators),
+                            "volatility_label": DerivedMetrics.get_volatility_label(indicators, current_price),
+                            "volume_label": DerivedMetrics.get_volume_label(indicators.get('volume', {}))
+                        }
                         
                         result["klines"][frame] = {
                             "data": raw_klines[-5:], # Only show last 5 to avoid huge JSON in console, user can adjust
-                            "indicators": indicators
+                            "indicators": indicators,
+                            "summary": summary
                         }
                         
                         if frame == '1m' and raw_klines:
@@ -109,6 +116,13 @@ class AggregatorService:
                                 }
                                 for item in history["data"]
                             ]
+                            
+                            # Calculate funding stats
+                            from exdatahub.services.derived_metrics import DerivedMetrics
+                            stats = DerivedMetrics.calculate_funding_stats(
+                                result["derivatives"]["funding_rate"]["history"]
+                            )
+                            result["derivatives"]["funding_rate"].update(stats)
                     except Exception as e:
                         result["derivatives"]["funding_rate"]["history_error"] = str(e)
         except Exception as e:
@@ -118,27 +132,59 @@ class AggregatorService:
             oi = self.client.fetch_open_interest(symbol)
             if oi.get("code") == "0" and oi.get("data"):
                 oi_data = oi["data"][0]
+                current_oi = float(oi_data.get("oi", 0))
                 result["derivatives"]["oi"] = {
                     "value": oi_data.get("oi"),
                     "value_usd": oi_data.get("oiCcy"),
                     "ts": oi_data.get("ts")
                 }
+                
+                # Add OI change if history is available
+                if self.config and self.config.enable_oi_history:
+                    try:
+                        oi_history = self.client.fetch_oi_history(
+                            symbol,
+                            limit=self.config.oi_history_limit
+                        )
+                        if oi_history.get("code") == "0" and oi_history.get("data"):
+                            result["derivatives"]["oi"]["history"] = oi_history["data"]
+                            
+                            # Calculate OI change
+                            from exdatahub.services.derived_metrics import DerivedMetrics
+                            change = DerivedMetrics.calculate_oi_change(current_oi, oi_history["data"])
+                            result["derivatives"]["oi"].update(change)
+                    except Exception as e:
+                        result["derivatives"]["oi"]["history_error"] = str(e)
         except Exception as e:
             result["derivatives"]["oi"] = {"error": str(e)}
 
         try:
-            # Mark price
+            # Mark price and index price
             mark = self.client.fetch_index_tickers(symbol)
+            ticker = self.client.fetch_ticker(symbol)
+            
+            mark_price = None
+            index_price = None
+            
             if mark.get("code") == "0" and mark.get("data"):
                 m_data = mark["data"][0]
-                result["derivatives"]["price"] = {
-                    "mark": m_data.get("markPx"),
-                    "index": m_data.get("indexPx"), # OKX mark-price endpoint might not have indexPx, check docs?
-                    # Actually /api/v5/public/mark-price returns markPx.
-                    # /api/v5/market/index-tickers returns indexPx.
-                    # Let's just use what we have.
-                    "ts": m_data.get("ts")
-                }
+                mark_price = m_data.get("markPx")
+            
+            if ticker.get("code") == "0" and ticker.get("data"):
+                t_data = ticker["data"][0]
+                index_price = t_data.get("indexPrice") or t_data.get("idxPx")
+            
+            result["derivatives"]["price"] = {
+                "mark": mark_price,
+                "index": index_price,
+                "ts": m_data.get("ts") if mark.get("data") else None
+            }
+            
+            # Calculate basis
+            if mark_price and index_price:
+                from exdatahub.services.derived_metrics import DerivedMetrics
+                basis = DerivedMetrics.calculate_basis(mark_price, index_price)
+                result["derivatives"]["price"].update(basis)
         except Exception as e:
             result["derivatives"]["price"] = {"error": str(e)}
 
