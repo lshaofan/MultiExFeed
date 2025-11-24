@@ -1,0 +1,41 @@
+# 示例配置 - 简单策略
+
+# 交易所配置
+exchange: okx
+symbol: BTC-USDT-SWAP
+
+# K线周期配置（只获取短周期）
+klines:
+  frames: [1m, 5m, 15m]
+  limit: 100
+
+# 技术指标参数（使用默认值）
+indicators:
+  trend:
+    ema: [9, 21, 50]
+    ma: [100, 200]
+  volatility:
+    bb_period: 20
+    bb_std: 2
+    atr_period: 14
+  momentum:
+    rsi_period: 14
+    macd_fast: 12
+    macd_slow: 26
+    macd_signal: 9
+  volume:
+    vol_ma_period: 20
+
+# 衍生品数据配置
+derivatives:
+  enable_funding_history: true
+  funding_history_limit: 12  # 过去12小时
+  enable_oi_history: false
+  oi_history_limit: 24
+  enable_long_short_ratio: false
+
+# 输出配置
+output:
+  mode: file
+  directory: output/simple_strategy
+  filename_format: "{timestamp}_{random}"

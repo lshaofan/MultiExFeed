@@ -10,5 +10,6 @@ dependencies = [
     "pandas-ta>=0.4.71b0",
     "pydantic>=2.12.4",
     "python-dotenv>=1.2.1",
+    "pyyaml>=6.0.3",
     "requests>=2.32.5",
 ]

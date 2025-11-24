@@ -1,0 +1,41 @@
+# ExDataHub 默认配置文件
+
+# 交易所配置
+exchange: okx
+symbol: BTC-USDT-SWAP
+
+# K线周期配置
+klines:
+  frames: [1m, 5m, 15m, 1H, 4H, 1D]
+  limit: 300
+
+# 技术指标参数
+indicators:
+  trend:
+    ema: [9, 21, 50]
+    ma: [100, 200]
+  volatility:
+    bb_period: 20
+    bb_std: 2
+    atr_period: 14
+  momentum:
+    rsi_period: 14
+    macd_fast: 12
+    macd_slow: 26
+    macd_signal: 9
+  volume:
+    vol_ma_period: 20
+
+# 衍生品数据配置
+derivatives:
+  enable_funding_history: true
+  funding_history_limit: 24  # 过去24小时
+  enable_oi_history: true
+  oi_history_limit: 24       # 过去24小时
+  enable_long_short_ratio: false  # OKX可能不支持，先关闭
+
+# 输出配置
+output:
+  mode: file           # console 或 file
+  directory: output
+  filename_format: "{timestamp}_{random}"

@@ -90,11 +90,15 @@ class OKXClient(BaseExchangeClient):
         """
         Fetch klines.
         OKX API: GET /api/v5/market/candles?instId={symbol}&bar={interval}&limit={limit}
+        
+        Note: OKX bar parameter is case-sensitive:
+        - Lowercase for minutes: 1m, 5m, 15m, 30m
+        - Uppercase for hours/days: 1H, 4H, 1D, 1W, etc.
         """
         path = "/api/v5/market/candles"
         params = {
             "instId": symbol,
-            "bar": interval,
+            "bar": interval,  # Keep the interval as-is, it should already be correct
             "limit": str(limit)
         }
         return self._request("GET", path, params)
@@ -143,3 +147,30 @@ class OKXClient(BaseExchangeClient):
         path = "/api/v5/public/mark-price"
         params = {"instId": symbol}
         return self._request("GET", path, params)
+
+    def fetch_funding_rate_history(self, symbol: str, limit: int = 24) -> Dict[str, Any]:
+        """
+        Fetch funding rate history.
+        OKX API: GET /api/v5/public/funding-rate-history?instId={symbol}&limit={limit}
+        """
+        path = "/api/v5/public/funding-rate-history"
+        params = {
+            "instId": symbol,
+            "limit": str(limit)
+        }
+        return self._request("GET", path, params)
+
+    def fetch_oi_history(self, symbol: str, period: str = "5m", limit: int = 24) -> Dict[str, Any]:
+        """
+        Fetch open interest history.
+        OKX API: GET /api/v5/rubik/stat/contracts/open-interest-history
+        Note: This might require special permissions
+        """
+        path = "/api/v5/rubik/stat/contracts/open-interest-history"
+        params = {
+            "instId": symbol,
+            "period": period,
+            "limit": str(limit)
+        }
+        return self._request("GET", path, params)
+

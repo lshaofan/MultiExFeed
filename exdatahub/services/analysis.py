@@ -40,7 +40,10 @@ class AnalysisService:
         bb = ta.bbands(df['close'], length=20, std=2)
         if bb is not None:
             df = pd.concat([df, bb], axis=1)
-            # Rename for clarity if needed, pandas_ta uses BBL_20_2.0, BBM_20_2.0, BBU_20_2.0
+            # pandas_ta column names: BBL_20_2.0, BBM_20_2.0, BBU_20_2.0
+            # But sometimes it might be BBL_20_2, BBU_20_2 (without .0)
+            # Let's find the actual column names
+            bb_cols = [col for col in df.columns if 'BB' in col]
 
         # ATR (14)
         df['ATR_14'] = ta.atr(df['high'], df['low'], df['close'], length=14)
@@ -64,11 +67,18 @@ class AnalysisService:
         def get_val(row, key):
             val = row.get(key)
             return float(val) if pd.notna(val) else None
-
-        # Construct result
-        # Note: pandas_ta column names might vary slightly based on version/params
-        # Standard names: BBL_20_2.0, BBU_20_2.0, MACD_12_26_9, MACDs_12_26_9, MACDh_12_26_9
         
+        # Helper to find BB columns (handle different naming conventions)
+        def find_bb_col(prefix):
+            cols = [col for col in df.columns if col.startswith(prefix)]
+            if cols:
+                return cols[0]
+            return None
+        
+        bb_upper_col = find_bb_col('BBU')
+        bb_lower_col = find_bb_col('BBL')
+        
+        # Construct result
         return {
             "trend": {
                 "ema_9": get_val(last_row, 'EMA_9'),
@@ -78,8 +88,8 @@ class AnalysisService:
                 "ma_200": get_val(last_row, 'MA_200'),
             },
             "volatility": {
-                "bb_upper": get_val(last_row, 'BBU_20_2.0'),
-                "bb_lower": get_val(last_row, 'BBL_20_2.0'),
+                "bb_upper": get_val(last_row, bb_upper_col) if bb_upper_col else None,
+                "bb_lower": get_val(last_row, bb_lower_col) if bb_lower_col else None,
                 "atr_14": get_val(last_row, 'ATR_14'),
             },
             "momentum": {

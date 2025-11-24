@@ -1,11 +1,13 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from exdatahub.exchanges.okx_client import OKXClient
 from exdatahub.services.analysis import AnalysisService
 from exdatahub.config.settings import settings
+from exdatahub.config.config_loader import ConfigLoader
 import concurrent.futures
 
 class AggregatorService:
-    def __init__(self, exchange_name: str = 'okx'):
+    def __init__(self, exchange_name: str = 'okx', config: Optional[ConfigLoader] = None):
+        self.config = config
         if exchange_name.lower() == 'okx':
             self.client = OKXClient(
                 api_key=settings.OKX_API_KEY,
@@ -16,13 +18,21 @@ class AggregatorService:
         else:
             raise ValueError(f"Exchange '{exchange_name}' not supported.")
 
-    def analyze_market(self, symbol: str, frames: List[str] = ['1m', '5m', '15m', '1h', '4h', '1d']) -> Dict[str, Any]:
+    def analyze_market(self, symbol: str, frames: List[str] = None) -> Dict[str, Any]:
         """
         Fetch all market data and calculate indicators.
+        
+        Args:
+            symbol: Trading pair symbol
+            frames: List of timeframes (if None, use config or default)
         """
+        # Use config if available
+        if frames is None:
+            frames = self.config.kline_frames if self.config else ['1m', '5m', '15m', '1H', '4H', '1D']
+        
         result = {
             "symbol": symbol,
-            "timestamp": None, # Will be filled with latest ts
+            "timestamp": None,
             "klines": {},
             "derivatives": {}
         }
@@ -72,8 +82,8 @@ class AggregatorService:
                 except Exception as e:
                     result["klines"][frame] = {"error": str(e)}
 
-        # 2. Fetch Derivatives Data (Sequential or Parallel)
-        # Funding, OI, Index/Mark Price
+        # 2. Fetch Derivatives Data
+        # Funding Rate
         try:
             funding = self.client.fetch_funding_rate(symbol)
             if funding.get("code") == "0" and funding.get("data"):
@@ -83,6 +93,24 @@ class AggregatorService:
                     "next": f_data.get("nextFundingRate"),
                     "next_time": f_data.get("nextFundingTime")
                 }
+                
+                # Add funding history if enabled
+                if self.config and self.config.enable_funding_history:
+                    try:
+                        history = self.client.fetch_funding_rate_history(
+                            symbol, 
+                            limit=self.config.funding_history_limit
+                        )
+                        if history.get("code") == "0" and history.get("data"):
+                            result["derivatives"]["funding_rate"]["history"] = [
+                                {
+                                    "ts": item.get("fundingTime"),
+                                    "rate": item.get("fundingRate")
+                                }
+                                for item in history["data"]
+                            ]
+                    except Exception as e:
+                        result["derivatives"]["funding_rate"]["history_error"] = str(e)
         except Exception as e:
             result["derivatives"]["funding_rate"] = {"error": str(e)}
 

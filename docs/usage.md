@@ -28,8 +28,54 @@ ExDataHub 是一个多交易所行情数据网关，目前支持 OKX 交易所�
 
 使用 `start.sh` 脚本调用 CLI。
 
-### 基本语法
+## CLI 使用方法
 
+使用 `start.sh` 脚本调用 CLI。
+
+### 方式一：使用配置文件（推荐）
+
+```bash
+# 使用默认配置
+./start.sh analyze
+
+# 使用自定义配置
+./start.sh analyze --config config/examples/simple_strategy.yaml
+
+# 使用配置文件并覆盖输出模式
+./start.sh analyze --config config/default.yaml --output-mode file
+```
+
+### 方式二：直接指定参数
+
+```bash
+# 指定交易所和交易对
+./start.sh analyze okx BTC-USDT-SWAP
+
+# 自定义周期
+./start.sh analyze okx BTC-USDT-SWAP --frames 1m,5m,15m
+
+# 输出到文件
+./start.sh analyze okx BTC-USDT-SWAP --output-mode file
+```
+
+### 配置文件说明
+
+配置文件使用 YAML 格式，示例见 `config/default.yaml`：
+
+```yaml
+exchange: okx
+symbol: BTC-USDT-SWAP
+
+klines:
+  frames: [1m, 5m, 15m, 1H, 4H, 1D]
+  limit: 300
+
+output:
+  mode: file           # console 或 file
+  directory: output
+```
+
+### 基本语法（旧方式，仍然支持）
 ```bash
 ./start.sh fetch [EXCHANGE] [DATA_TYPE] [SYMBOL] [OPTIONS]
 ```
